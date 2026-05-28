@@ -13,8 +13,8 @@ st.set_page_config(page_title="OpenClaw Vision Agent", layout="centered")
 st.title("OpenClaw Vision Agent")
 st.caption("Desk Safety Assistant — walking skeleton")
 
-if not os.getenv("OPENAI_API_KEY"):
-    st.error("OPENAI_API_KEY is not set. Add it to a .env file in the project root.")
+if not os.getenv("GEMINI_API_KEY"):
+    st.error("GEMINI_API_KEY is not set. Add it to a .env file in the project root.")
     st.stop()
 
 uploaded = st.file_uploader(

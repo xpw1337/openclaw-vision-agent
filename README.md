@@ -12,10 +12,10 @@ cd openclaw-vision-agent
 pip install -r requirements.txt
 ```
 
-Create a `.env` file with your OpenAI API key:
+Create a `.env` file with your Gemini API key:
 
 ```
-OPENAI_API_KEY=your-api-key-here
+GEMINI_API_KEY=your-api-key-here
 ```
 
 Run the app:
@@ -27,7 +27,7 @@ streamlit run app.py
 ## What It Does
 
 1. **Upload** a photo of your desk/workspace (or capture via webcam)
-2. **Analyze** — the image is sent to OpenAI's gpt-4o with a structured prompt
+2. **Analyze** — the image is sent to Google's Gemini 3.5 Flash with a structured prompt
 3. **Results** — structured JSON output with:
    - Scene summary
    - Detected objects with confidence scores
@@ -42,7 +42,7 @@ streamlit run app.py
 Image Input (upload / webcam)
   → Validation (format, size)
   → Base64 Encoding (JPEG, max 2048px)
-  → OpenAI gpt-4o (structured output via Pydantic schema)
+  → Gemini 3.5 Flash (structured output via Pydantic schema)
   → Pydantic Validation (with fallback parser)
   → Pillow Annotation (bounding boxes + legend overlay)
   → Streamlit Display (two-column: annotated image | structured results)
@@ -52,7 +52,7 @@ Image Input (upload / webcam)
 
 | Module | File | Role |
 |--------|------|------|
-| Vision | `core/vision.py` | Pydantic models, image encoding, gpt-4o API call, system prompt |
+| Vision | `core/vision.py` | Pydantic models, image encoding, Gemini API call, system prompt |
 | Parser | `core/parser.py` | Fallback JSON parsing, markdown fence stripping, dict conversion |
 | Annotator | `core/annotator.py` | Pillow-based image annotation — bounding boxes + text legend |
 | App | `app.py` | Streamlit UI — input handling, layout, display, error states |
@@ -110,7 +110,7 @@ openclaw-vision-agent/
 | Technology | Why |
 |------------|-----|
 | **Streamlit** | Fast to prototype, built-in file upload and webcam capture, clean demo UI |
-| **OpenAI gpt-4o** | Best multimodal model for the price, supports structured outputs via Pydantic |
+| **Google Gemini 3.5 Flash** | Strong multimodal reasoning at low cost, native spatial grounding for bounding boxes, structured outputs via Pydantic schema, generous free tier |
 | **Pillow (PIL)** | Lightweight image annotation — no heavy OpenCV dependency for simple overlays |
 | **Pydantic** | Type-safe schema definition, automatic JSON schema generation for structured outputs |
 | **python-dotenv** | Clean environment variable management, keeps secrets out of code |
@@ -121,7 +121,7 @@ openclaw-vision-agent/
 - _To be updated after implementation_
 
 ### Partial
-- **Bounding boxes**: gpt-4o returns approximate coordinates, not pixel-accurate detection. Boxes are drawn when available but may be inaccurate.
+- **Bounding boxes**: Gemini returns approximate normalized coordinates, not pixel-accurate detection. Boxes are drawn when available but may be inaccurate.
 
 ### Would Improve With More Time
 - Multiple analysis modes (whiteboard, receipt, inventory, site safety)
@@ -138,7 +138,7 @@ openclaw-vision-agent/
 - **Not for safety-critical decisions.** This is a prototype demo — do not rely on it for actual workplace safety compliance.
 - **Single image analysis only** — no video, multi-frame, or streaming support.
 - **Webcam capture requires HTTPS** in production deployments (localhost works for local development).
-- **API dependency** — requires an active OpenAI API key and internet connection. Latency depends on image size and API load (typically 3-8 seconds).
+- **API dependency** — requires an active Gemini API key and internet connection. Latency depends on image size and API load (typically 2-6 seconds on Flash).
 
 ## Demo Evidence
 

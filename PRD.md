@@ -16,7 +16,7 @@ The evaluator values: working demo, honest communication, clean README, structur
 | gh CLI | 2.87.3, authenticated as `xpw1337` |
 | Target dir | `C:\lvl3ai\openclaw-vision-agent` — does not exist yet |
 
-All packages (streamlit, openai, Pillow, pydantic) are confirmed compatible with Python 3.14.
+All packages (streamlit, google-genai, Pillow, pydantic) are confirmed compatible with Python 3.14.
 
 ## Architecture
 
@@ -24,7 +24,7 @@ All packages (streamlit, openai, Pillow, pydantic) are confirmed compatible with
 Image Input (upload / webcam)
   → Validation (format, size)
   → Base64 Encoding (JPEG, max 2048px)
-  → OpenAI gpt-4o (structured output via Pydantic schema)
+  → Gemini 3.5 Flash (structured output via Pydantic schema)
   → Pydantic Validation (with fallback parser)
   → Pillow Annotation (bounding boxes + legend overlay)
   → Streamlit Display (two-column: annotated image | structured results)
@@ -37,7 +37,7 @@ openclaw-vision-agent/
 ├── app.py                    # Streamlit UI — input, display, error states
 ├── core/
 │   ├── __init__.py           # Public exports
-│   ├── vision.py             # Pydantic models, base64 encoding, gpt-4o API call, system prompt
+│   ├── vision.py             # Pydantic models, image encoding, Gemini API call, system prompt
 │   ├── parser.py             # Fallback JSON parsing, dict conversion
 │   └── annotator.py          # Pillow annotation — bounding boxes + text legend
 ├── requirements.txt
@@ -58,7 +58,7 @@ openclaw-vision-agent/
 
 ```
 streamlit>=1.57.0
-openai>=2.35.0
+google-genai>=1.0.0
 Pillow>=12.0.0
 pydantic>=2.13.0
 python-dotenv>=1.2.0
@@ -74,16 +74,17 @@ Pin to latest compatible versions at build time. All confirmed compatible with P
 - `DetectedObject`: `label: str`, `confidence: float`, `bbox: list[float] | None` (normalized 0-1, optional)
 - `VisionAnalysis`: `scene_summary: str`, `objects: list[DetectedObject]`, `risks_or_opportunities: list[str]`, `suggested_actions: list[str]`, `confidence_notes: str`
 
-**API call pattern — OpenAI Structured Outputs:**
-- Use `client.beta.chat.completions.parse()` with the `VisionAnalysis` Pydantic model as `response_format`
-- This guarantees valid JSON matching the schema (stronger than `json_object` mode)
-- Image sent as base64 data URI in the messages array: `{"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,{b64}", "detail": "high"}}`
-- `temperature: 0.2` for consistency, `max_tokens: 2000`, `timeout: 30s`
+**API call pattern — Gemini Structured Outputs:**
+- Use `client.models.generate_content()` with `config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=VisionAnalysis)`
+- Passing the Pydantic class as `response_schema` guarantees valid JSON matching the schema
+- Image sent as inline bytes via `types.Part.from_bytes(data=jpeg, mime_type="image/jpeg")` in the `contents` list
+- System prompt sent via `system_instruction` config field (not prepended to user content)
+- `temperature: 0.2` for consistency, `max_output_tokens: 2000`, `http_options=types.HttpOptions(timeout=30_000)` (30s in ms)
 
 **Image preprocessing:**
 - Resize to max 2048px (longest edge) to control token cost
 - Convert RGBA → RGB before JPEG encoding
-- Encode as base64 JPEG at quality 90
+- JPEG-encode at quality 90 and pass raw bytes (Gemini accepts inline bytes directly; no base64 wrapper needed)
 
 **System prompt strategy:**
 - Establish persona: "You are OpenClaw Vision Agent, operating in Desk Safety Assistant mode"
@@ -93,9 +94,9 @@ Pin to latest compatible versions at build time. All confirmed compatible with P
 - No JSON formatting instructions in prompt — the Pydantic schema handles that via structured outputs
 
 **Error handling:**
-- Check `response.choices[0].message.refusal` — raise ValueError if content policy triggered
-- If `.parsed` is None, fall back to raw content → `parser.py`
-- 30-second timeout on the OpenAI client
+- Check `response.prompt_feedback.block_reason` and `candidate.finish_reason` — raise ValueError if blocked by safety / content policy
+- If `response.parsed` is None, fall back to raw `response.text` → `parser.py`
+- 30-second timeout on the Gemini client via `HttpOptions(timeout=30_000)`
 
 ### 2. `core/parser.py` — Defense Layer
 
@@ -141,25 +142,25 @@ Pin to latest compatible versions at build time. All confirmed compatible with P
 
 | Error | Location | User Experience |
 |-------|----------|-----------------|
-| Missing OPENAI_API_KEY | app.py load | Red banner, app stops |
+| Missing GEMINI_API_KEY | app.py load | Red banner, app stops |
 | Wrong file type | st.file_uploader filter | File rejected at widget |
 | Corrupt image | Image.open() in app.py | "Could not open this file as an image" |
 | Tiny image (<50px) | Size check in app.py | Yellow warning, analysis proceeds |
 | API error (auth/rate/server) | try/except in app.py | "Analysis failed: {error}" |
-| Content policy refusal | vision.py refusal check | "Image could not be analyzed due to content policy" |
+| Content / safety block | vision.py block_reason check | "Image could not be analyzed due to content policy" |
 | Malformed JSON | parser.py fallback | Partial results with defaults |
-| Network timeout | OpenAI client 30s timeout | "Analysis failed: Connection timed out" |
+| Network timeout | Gemini client 30s timeout | "Analysis failed: Connection timed out" |
 
 ### 6. `README.md`
 
 Must include (evaluator checks this):
 - Project title + one-liner
-- Quick Start: `git clone`, `pip install -r requirements.txt`, set OPENAI_API_KEY, `streamlit run app.py` — 4 commands
+- Quick Start: `git clone`, `pip install -r requirements.txt`, set GEMINI_API_KEY, `streamlit run app.py` — 4 commands
 - Architecture overview with pipeline description
 - What works / what's partial / what would improve with more time
 - Assumptions & limitations (model hallucinations, bbox inaccuracy, confidence scores are estimates, not safety-critical)
 - Sample input/output references
-- Tech stack rationale (Streamlit: fast prototyping; gpt-4o: best multimodal + structured outputs; Pillow: lightweight annotation; Pydantic: type safety)
+- Tech stack rationale (Streamlit: fast prototyping; Gemini 3.5 Flash: strong multimodal + native spatial grounding + structured outputs at low cost; Pillow: lightweight annotation; Pydantic: type safety)
 
 ### 7. `docs/architecture.md`
 
@@ -196,7 +197,7 @@ Short document: pipeline diagram (text), component responsibilities, why each te
 ## Verification Checklist
 
 - [ ] `pip install -r requirements.txt` works cleanly
-- [ ] `streamlit run app.py` launches without errors (with OPENAI_API_KEY set)
+- [ ] `streamlit run app.py` launches without errors (with GEMINI_API_KEY set)
 - [ ] Upload a desk photo → specific structured JSON output
 - [ ] Annotated image displays with labels/boxes
 - [ ] Upload a .txt file → rejected by uploader

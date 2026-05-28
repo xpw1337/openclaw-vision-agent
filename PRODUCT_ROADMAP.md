@@ -10,22 +10,22 @@ The four iterations correspond to **walking skeleton → spec-complete → robus
 
 **Goal:** Prove the pipeline end-to-end with the absolute minimum code. Image in, JSON out, displayed somewhere. No annotation, no error handling, no schema rigor. Just one straight line from upload to screen.
 
-**Definition of done:** From a clean clone, `streamlit run app.py` opens a page where uploading a desk photo prints OpenAI's response text. You believe the integration works.
+**Definition of done:** From a clean clone, `streamlit run app.py` opens a page where uploading a desk photo prints Gemini's response text. You believe the integration works.
 
 ### Features
 
 1. **F1.1 — Project scaffolding**
    - Create the directory tree from PRD §"Project Structure".
    - `.gitignore` (Python defaults + `.env`, `.venv`, `__pycache__`).
-   - `.env.example` with `OPENAI_API_KEY=`.
+   - `.env.example` with `GEMINI_API_KEY=`.
    - `requirements.txt` with the 5 pinned dependencies.
    - Empty `__init__.py` files and `.gitkeep`s.
 
 2. **F1.2 — Minimum vision call** (`core/vision.py`)
    - One function: `analyze_image(image_bytes) -> str`.
    - Resize to ≤2048px, RGBA→RGB, base64 JPEG encode.
-   - Call `gpt-4o` with a simple system prompt ("describe this scene as JSON with scene_summary, objects, risks, actions").
-   - Return raw `response.choices[0].message.content`. No parsing, no Pydantic yet.
+   - Call `gemini-3.5-flash` with a simple system prompt ("describe this scene as JSON with scene_summary, objects, risks, actions").
+   - Return raw `response.text`. No parsing, no Pydantic yet.
 
 3. **F1.3 — Minimum Streamlit shell** (`app.py`)
    - Title + file uploader (`jpg/jpeg/png/webp`).
@@ -50,14 +50,14 @@ The four iterations correspond to **walking skeleton → spec-complete → robus
 
 1. **F2.1 — Pydantic schema + structured outputs**
    - Define `DetectedObject` and `VisionAnalysis` per PRD §1.
-   - Switch `analyze_image` to `client.beta.chat.completions.parse()` with `response_format=VisionAnalysis`.
-   - Return a typed `VisionAnalysis` instead of a string.
+   - Switch `analyze_image` to `client.models.generate_content()` with `config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=VisionAnalysis)`.
+   - Return a typed `VisionAnalysis` (via `response.parsed`) instead of a string.
    - System prompt upgraded per PRD §1: persona, specificity guard, bbox optionality, honesty about uncertainty.
 
 2. **F2.2 — Fallback parser** (`core/parser.py`)
    - `parse_raw_json(raw: str) -> VisionAnalysis` — strips markdown fences, fills missing fields with defaults.
    - `safe_to_dict(analysis) -> dict` — excludes None for clean JSON display.
-   - Wired in as the fallback when `response.choices[0].message.parsed` is None.
+   - Wired in as the fallback when `response.parsed` is None.
 
 3. **F2.3 — Pillow annotator — both modes** (`core/annotator.py`)
    - **Bounding-box mode:** semi-transparent rectangles + label-with-confidence text, clamped to [0,1], invalid boxes discarded.
@@ -93,14 +93,14 @@ The four iterations correspond to **walking skeleton → spec-complete → robus
 ### Features (each independent)
 
 1. **F3.1 — Full error handling matrix** (PRD §5)
-   - Missing `OPENAI_API_KEY` → red banner + `st.stop()` on load.
+   - Missing `GEMINI_API_KEY` → red banner + `st.stop()` on load.
    - Wrong file type → blocked by `st.file_uploader(type=...)`.
    - Corrupt image → friendly message at `Image.open()`.
    - Tiny image (<50px) → yellow warning, continue.
    - API error (auth/rate/server) → `st.error("Analysis failed: {msg}")`.
-   - Content-policy refusal → check `response.choices[0].message.refusal`, raise `ValueError`, show friendly message.
+   - Content / safety block → check `response.prompt_feedback.block_reason` and candidate `finish_reason`, raise `ValueError`, show friendly message.
    - Malformed JSON → fallback parser path exercised, partial results rendered.
-   - Network timeout → 30s client timeout, clean error.
+   - Network timeout → 30s client timeout via `HttpOptions(timeout=30_000)`, clean error.
 
 2. **F3.2 — Image preprocessing hardening**
    - EXIF orientation handling (`ImageOps.exif_transpose`) so phone photos render upright.
@@ -141,7 +141,7 @@ The four iterations correspond to **walking skeleton → spec-complete → robus
    - Architecture overview (pipeline text diagram).
    - "What works / what's partial / what would improve with more time" — honest, specific, no hedging.
    - Assumptions & limitations (model hallucinations, bbox inaccuracy, confidence as self-assessment, not safety-critical).
-   - Tech stack rationale (Streamlit, gpt-4o, Pillow, Pydantic — one line of *why* each).
+   - Tech stack rationale (Streamlit, Gemini 3.5 Flash, Pillow, Pydantic — one line of *why* each).
    - Sample input/output references with embedded screenshots.
 
 2. **F4.2 — Architecture doc** (`docs/architecture.md`)
