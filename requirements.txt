@@ -1,0 +1,5 @@
+streamlit>=1.57.0
+openai>=2.35.0
+Pillow>=12.0.0
+pydantic>=2.13.0
+python-dotenv>=1.2.0
