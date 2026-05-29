@@ -37,9 +37,9 @@ SYSTEM_PROMPT = (
     "risks or opportunities present, and concrete actions the person could take. "
     "Be specific to THIS image — never give generic advice not grounded in what "
     "you actually see. "
-    "Bounding boxes are optional. The format is normalized [x0, y0, x1, y1] with "
-    "each value in [0,1]. Omit the bbox field for an object if you are uncertain "
-    "about its location. "
+    "Bounding boxes are optional. Use the format [ymin, xmin, ymax, xmax] with "
+    "each value normalized to [0,1]. Omit the bbox field for an object if you are "
+    "uncertain about its location. "
     "Be honest about uncertainty: confidences and bounding boxes are estimates, "
     "not precise measurements."
 )
@@ -58,6 +58,27 @@ def _to_jpeg_bytes(image_bytes: bytes) -> bytes:
     return buf.getvalue()
 
 
+def _normalize_bboxes(analysis: VisionAnalysis) -> VisionAnalysis:
+    """Coerce Gemini's boxes into normalized [x0, y0, x1, y1] in [0,1].
+
+    Gemini emits boxes y-axis first as [ymin, xmin, ymax, xmax], and is
+    inconsistent about scale — sometimes [0,1], sometimes [0,1000] — regardless
+    of the prompt. The rest of the app (annotator, raw-JSON display, sample
+    outputs) expects the [x0, y0, x1, y1] order in [0,1] documented on
+    DetectedObject.bbox, so we reorder and rescale once here at the boundary.
+    Any coordinate above 1.0 means the box is on the 0-1000 scale.
+    """
+    for obj in analysis.objects:
+        if obj.bbox is None or len(obj.bbox) != 4:
+            continue
+        ymin, xmin, ymax, xmax = obj.bbox
+        box = [xmin, ymin, xmax, ymax]
+        if any(v > 1.0 for v in box):
+            box = [v / 1000.0 for v in box]
+        obj.bbox = box
+    return analysis
+
+
 def analyze_image(image_bytes: bytes) -> VisionAnalysis:
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     jpeg = _to_jpeg_bytes(image_bytes)
@@ -73,9 +94,9 @@ def analyze_image(image_bytes: bytes) -> VisionAnalysis:
         ),
     )
     if response.parsed is not None:
-        return response.parsed
+        return _normalize_bboxes(response.parsed)
 
     # Lazy import avoids a circular import at module load (parser imports VisionAnalysis).
     from core.parser import parse_raw_json
 
-    return parse_raw_json(response.text)
+    return _normalize_bboxes(parse_raw_json(response.text))
