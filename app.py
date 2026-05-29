@@ -34,7 +34,7 @@ if file is not None:
 
         left, right = st.columns([1, 1])
         with left:
-            st.image(annotated, use_container_width=True)
+            st.image(annotated, width="stretch")
         with right:
             st.info(analysis.scene_summary)
 
