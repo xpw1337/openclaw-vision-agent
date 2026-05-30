@@ -12,7 +12,21 @@ import streamlit as st
 from dotenv import load_dotenv
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from core import ContentBlockedError, analyze_image, annotate_image, safe_to_dict
+from core import (
+    ContentBlockedError,
+    analyze_image,
+    annotate_image,
+    check_image_quality,
+    safe_to_dict,
+)
+
+_QUALITY_MESSAGES = {
+    "blank": (
+        "This image looks blank or featureless (very dark, very bright, or a "
+        "solid color), so the model has nothing to analyze."
+    ),
+    "blurry": "This image looks too blurry to analyze reliably.",
+}
 
 load_dotenv()
 
@@ -82,11 +96,12 @@ if file is None:
     )
     st.stop()
 
-# Drop stale results whenever a different file is selected.
+# Drop stale results (and any pending quality warning) on a new file selection.
 signature = _file_signature(file)
 if st.session_state.get("file_sig") != signature:
     st.session_state["file_sig"] = signature
     st.session_state.pop("results", None)
+    st.session_state.pop("pending_reason", None)
 
 image_bytes = file.getvalue()
 try:
@@ -98,7 +113,35 @@ except (UnidentifiedImageError, OSError):
 if min(image.size) < 50:
     st.warning("This image is very small (under 50px); results may be unreliable.")
 
+# On Analyze: pre-check quality. A flagged image opens a warning dialog (which can
+# be overridden) instead of running straight away; an override is remembered per file.
 if st.button("Analyze Workspace", type="primary"):
+    reason = check_image_quality(image)
+    if reason and st.session_state.get("force_sig") != signature:
+        st.session_state["pending_reason"] = reason
+    else:
+        st.session_state["run_now"] = True
+
+if st.session_state.get("pending_reason"):
+
+    @st.dialog("This image may be unusable")
+    def _quality_warning() -> None:
+        st.warning(_QUALITY_MESSAGES[st.session_state["pending_reason"]])
+        st.write("Pick a different image, or analyze this one anyway.")
+        left_btn, right_btn = st.columns(2)
+        if left_btn.button("Analyze anyway", type="primary"):
+            st.session_state["force_sig"] = signature
+            st.session_state["run_now"] = True
+            st.session_state.pop("pending_reason", None)
+            st.rerun()
+        if right_btn.button("Choose another image"):
+            st.session_state.pop("pending_reason", None)
+            st.rerun()
+
+    _quality_warning()
+
+# Decoupled from the button value so "Analyze anyway" can trigger it on its own rerun.
+if st.session_state.pop("run_now", False):
     with st.spinner("Analyzing your workspace..."):
         try:
             analysis = analyze_image(image_bytes)
