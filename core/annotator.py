@@ -30,6 +30,29 @@ def _hex_to_rgb(color: str) -> tuple[int, int, int]:
     return tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
 
 
+def _text_width(draw, text: str, font) -> float:
+    x0, _, x1, _ = draw.textbbox((0, 0), text, font=font)
+    return x1 - x0
+
+
+def _truncate(draw, text: str, font, max_w: float) -> str:
+    """Trim `text` with a trailing ellipsis until it renders within `max_w`."""
+    if _text_width(draw, text, font) <= max_w:
+        return text
+    ellipsis = "…"
+    # Drop characters until the text plus an ellipsis fits; never return empty.
+    for end in range(len(text) - 1, 0, -1):
+        candidate = text[:end].rstrip() + ellipsis
+        if _text_width(draw, candidate, font) <= max_w:
+            return candidate
+    return ellipsis
+
+
+def _intersects(a: list[float], b: list[float]) -> bool:
+    """True if axis-aligned rects a=[x0,y0,x1,y1] and b overlap."""
+    return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+
+
 def _valid_bbox(bbox: list[float] | None) -> list[float] | None:
     """Clamp to [0,1] and return only if it describes a real (x0<x1, y0<y1) box."""
     if not bbox or len(bbox) != 4:
@@ -44,6 +67,9 @@ def _valid_bbox(bbox: list[float] | None) -> list[float] | None:
 
 
 def _draw_bboxes(overlay, draw, w, h, font, objects) -> None:
+    min_label_w = max(font.size * 4 if hasattr(font, "size") else 56, 56)
+    placed: list[list[float]] = []  # label rects already drawn, for collision checks
+
     for i, obj in enumerate(objects):
         bbox = _valid_bbox(obj.bbox)
         if bbox is None:
@@ -52,16 +78,39 @@ def _draw_bboxes(overlay, draw, w, h, font, objects) -> None:
         x0, y0, x1, y1 = (bbox[0] * w, bbox[1] * h, bbox[2] * w, bbox[3] * h)
         draw.rectangle([x0, y0, x1, y1], fill=(*rgb, 64), outline=(*rgb, 255), width=3)
 
-        label = f"{obj.label} {int(obj.confidence * 100)}%"
+        # Budget the label to the box width (with a floor so tiny boxes still show
+        # a few characters), but never let it run off the right image edge.
+        budget = min(w - x0 - 4, max(x1 - x0, min_label_w))
+        label = _truncate(draw, f"{obj.label} {int(obj.confidence * 100)}%", font, budget)
         tx0, ty0, tx1, ty1 = draw.textbbox((0, 0), label, font=font)
         tw, th = tx1 - tx0, ty1 - ty0
-        ly = max(0, y0 - th - 4)
-        draw.rectangle([x0, ly, x0 + tw + 6, ly + th + 4], fill=(*rgb, 230))
-        draw.text((x0 + 3, ly + 2), label, fill=(255, 255, 255, 255), font=font)
+        lw, lh = tw + 6, th + 4
+        lx = min(x0, w - lw)  # keep the label box within the image
+
+        # Prefer above the box; if that collides or runs off the top, step the
+        # label downward (into / below the box top) until it's clear.
+        candidates = [y0 - lh] + [y0 + 2 + k * lh for k in range(len(placed) + 2)]
+        ly = candidates[0]
+        for cy in candidates:
+            rect = [lx, cy, lx + lw, cy + lh]
+            if cy >= 0 and not any(_intersects(rect, p) for p in placed):
+                ly = cy
+                break
+        ly = max(0, ly)
+
+        rect = [lx, ly, lx + lw, ly + lh]
+        placed.append(rect)
+        draw.rectangle(rect, fill=(*rgb, 230))
+        draw.text((lx + 3, ly + 2), label, fill=(255, 255, 255, 255), font=font)
 
 
 def _draw_legend(overlay, draw, w, h, font, objects) -> None:
-    lines = [f"{i + 1}. {o.label} {int(o.confidence * 100)}%" for i, o in enumerate(objects)]
+    # Keep the panel readable: cap each line to roughly half the image width.
+    line_budget = max(w // 2, 120)
+    lines = [
+        _truncate(draw, f"{i + 1}. {o.label} {int(o.confidence * 100)}%", font, line_budget)
+        for i, o in enumerate(objects)
+    ]
     widths, height = [], 0
     for line in lines:
         lx0, ly0, lx1, ly1 = draw.textbbox((0, 0), line, font=font)
