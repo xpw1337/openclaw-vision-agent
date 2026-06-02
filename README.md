@@ -4,6 +4,8 @@
 
 Built for [LVL3.ai](https://lvl3.ai) / Claw.dius Maximus — Level 3 automation that understands objectives and adapts intelligently.
 
+> **Note on model choice:** The assignment suggested OpenAI `gpt-4o`. I used Google **Gemini 3.5 Flash** instead — a deliberate deviation for its generous free tier (this is an unfunded prototype), native spatial grounding for bounding boxes without a separate detector, and first-class structured outputs driven directly by a Pydantic schema. The pipeline is model-agnostic in shape; only `core/vision.py` would change to swap providers.
+
 ## Quick Start
 
 ```bash
@@ -22,6 +24,12 @@ Run the app:
 
 ```bash
 streamlit run app.py
+```
+
+Optionally, run the test suite (41 tests):
+
+```bash
+python -m pytest
 ```
 
 ## What It Does
@@ -61,25 +69,25 @@ Image Input (upload / webcam)
 
 ```
 openclaw-vision-agent/
-├── app.py
+├── app.py                    # Streamlit UI, error matrix, session state
 ├── core/
-│   ├── __init__.py
-│   ├── vision.py
-│   ├── parser.py
-│   └── annotator.py
+│   ├── __init__.py           # Public exports
+│   ├── vision.py             # Pydantic schema, Gemini call, bbox normalization
+│   ├── parser.py             # Fallback JSON parsing
+│   ├── annotator.py          # Pillow annotation (bbox + legend)
+│   └── quality.py            # Blank / blurry pre-check
+├── tests/                    # 41 unit tests (annotator, parser, quality, vision)
+├── sample_inputs/            # Demo desk photos + edge-case fixtures
+├── sample_outputs/           # Real captured JSON for the desk photos
+├── assets/                   # Demo screenshots
+├── docs/
+│   └── architecture.md       # Pipeline diagram + design rationale
 ├── requirements.txt
 ├── .env.example
 ├── .gitignore
 ├── README.md
-├── PRD.md
-├── docs/
-│   └── architecture.md
-├── sample_inputs/
-│   └── .gitkeep
-├── sample_outputs/
-│   └── .gitkeep
-└── assets/
-    └── .gitkeep
+├── PRD.md                    # Build plan / spec
+└── PRODUCT_ROADMAP.md        # 4-iteration delivery plan
 ```
 
 ## Example Output
@@ -118,10 +126,19 @@ openclaw-vision-agent/
 ## Status
 
 ### Fully Working
-- _To be updated after implementation_
+- **Two input sources** — file upload (`jpg/jpeg/png/webp`) and live webcam capture, sharing one downstream pipeline.
+- **Robust preprocessing** — EXIF orientation correction (upright phone photos), RGBA/palette/grayscale → RGB normalization, resize to ≤2048px.
+- **Structured output** — Gemini 3.5 Flash constrained to a Pydantic schema; typed `VisionAnalysis` every time.
+- **Fallback parser** — recovers a valid result from raw model text (markdown-fence stripping, default-filling) when the SDK can't.
+- **Annotator, two modes** — semi-transparent bounding boxes with collision-aware, truncated labels; automatic legend-panel fallback when no usable boxes exist.
+- **Image quality guard** — flags blank/blurry photos before spending an API call, with an "analyze anyway" override.
+- **Full error matrix** (PRD §5) — missing key, corrupt file, tiny image, API/network failure, content-safety block, malformed JSON — all surface as friendly states, never raw tracebacks.
+- **Two-column results UI** — annotated image alongside scene summary, objects, risks, actions, confidence notes, and a raw-JSON expander; results persist across Streamlit reruns.
+- **41 passing unit tests** across annotator, parser, quality, and vision.
 
 ### Partial
 - **Bounding boxes**: Gemini returns approximate normalized coordinates, not pixel-accurate detection. Boxes are drawn when available but may be inaccurate.
+- **Quality thresholds**: the blank/blurry heuristics are tuned on the sample desk photos — sensible defaults, not a calibrated classifier. They warn rather than block, and can be overridden.
 
 ### Would Improve With More Time
 - Multiple analysis modes (whiteboard, receipt, inventory, site safety)
@@ -142,7 +159,21 @@ openclaw-vision-agent/
 
 ## Demo Evidence
 
-_Screenshots and sample outputs will be added after implementation._
+**Sample inputs** live in [`sample_inputs/`](sample_inputs/) — two real desk photos
+(`desk_laptops_cables.jpg`, `desk_cluttered.jpg`) plus edge-case fixtures for the
+quality guard (`edge_blurred.png`, `edge_blank_black.png`, `edge_blank_white.png`).
+
+**Sample outputs** in [`sample_outputs/`](sample_outputs/) are the *actual* JSON the
+app produced for those two photos (not hand-written), so you can see the schema
+without running anything.
+
+### Screenshots
+
+| | |
+|---|---|
+| Full app, post-analysis | ![App overview](assets/app_overview.png) |
+| Annotated image (close-up) | ![Annotated close-up](assets/annotated_closeup.png) |
+| Error / warning state | ![Error state](assets/error_state.png) |
 
 ## License
 

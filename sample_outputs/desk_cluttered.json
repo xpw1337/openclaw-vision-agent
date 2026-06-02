@@ -1,0 +1,98 @@
+{
+  "scene_summary": "An extremely cluttered desk surface viewed from directly overhead, filled with a chaotic mix of electronics, tangled cables, personal items, food packaging, and office supplies.",
+  "objects": [
+    {
+      "label": "VR Headset",
+      "confidence": 0.95,
+      "bbox": [
+        0.658,
+        0.575,
+        0.786,
+        0.722
+      ]
+    },
+    {
+      "label": "Computer Mouse",
+      "confidence": 0.98,
+      "bbox": [
+        0.452,
+        0.864,
+        0.529,
+        0.943
+      ]
+    },
+    {
+      "label": "Yellow/Red Snack Bag",
+      "confidence": 0.92,
+      "bbox": [
+        0.416,
+        0.569,
+        0.533,
+        0.701
+      ]
+    },
+    {
+      "label": "Rubbing Alcohol Bottle",
+      "confidence": 0.9,
+      "bbox": [
+        0.313,
+        0.388,
+        0.376,
+        0.501
+      ]
+    },
+    {
+      "label": "Hand Sanitizer Bottle",
+      "confidence": 0.88,
+      "bbox": [
+        0.426,
+        0.383,
+        0.469,
+        0.474
+      ]
+    },
+    {
+      "label": "E-reader",
+      "confidence": 0.95,
+      "bbox": [
+        0.575,
+        0.791,
+        0.681,
+        0.928
+      ]
+    },
+    {
+      "label": "Tangled Cables",
+      "confidence": 0.85,
+      "bbox": [
+        0.236,
+        0.476,
+        0.55,
+        0.848
+      ]
+    },
+    {
+      "label": "Yellow Bottle",
+      "confidence": 0.9,
+      "bbox": [
+        0.06,
+        0.868,
+        0.082,
+        0.942
+      ]
+    }
+  ],
+  "risks_or_opportunities": [
+    "The severe cluster of Tangled Cables in the center of the desk poses a significant snag hazard and restricts usable workspace.",
+    "The Rubbing Alcohol Bottle and Hand Sanitizer Bottle are positioned close to the Yellow/Red Snack Bag and various electronics, presenting a chemical contamination and spill risk.",
+    "The expensive VR Headset is resting precariously on loose papers and fabric, making it vulnerable to falling, getting scratched, or being buried under other items.",
+    "The Computer Mouse has very little clear physical space around it, which can lead to ergonomic strain or accidentally knocking over nearby items during use."
+  ],
+  "suggested_actions": [
+    "Untangle and bundle the Tangled Cables using zip ties or cable sleeves to clear up central desk space.",
+    "Relocate the Rubbing Alcohol Bottle and Hand Sanitizer Bottle to a secure shelf away from the Yellow/Red Snack Bag and sensitive electronics.",
+    "Store the VR Headset in a dedicated protective case or on a stable stand to prevent physical damage.",
+    "Clear a dedicated path around the Computer Mouse to ensure safe, unhindered ergonomic movement."
+  ],
+  "confidence_notes": "The overhead perspective and bright, direct lighting provide clear visibility of individual items, though the extreme density and overlapping of objects (especially the tangled cables and papers) make precise bounding box delineation challenging for some items."
+}

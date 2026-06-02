@@ -1,0 +1,116 @@
+{
+  "scene_summary": "A highly cluttered temporary workspace set up on a white folding table, featuring three laptops, tangled cables, a router, personal items, and suitcases piled in the background.",
+  "objects": [
+    {
+      "label": "black gaming laptop",
+      "confidence": 0.95,
+      "bbox": [
+        0.137,
+        0.308,
+        0.393,
+        0.644
+      ]
+    },
+    {
+      "label": "silver laptop (open)",
+      "confidence": 0.98,
+      "bbox": [
+        0.178,
+        0.567,
+        0.408,
+        0.874
+      ]
+    },
+    {
+      "label": "silver laptop (closed)",
+      "confidence": 0.95,
+      "bbox": [
+        0.421,
+        0.682,
+        0.65,
+        0.893
+      ]
+    },
+    {
+      "label": "computer mouse",
+      "confidence": 0.97,
+      "bbox": [
+        0.494,
+        0.541,
+        0.539,
+        0.641
+      ]
+    },
+    {
+      "label": "book \"Hard Eight\"",
+      "confidence": 0.99,
+      "bbox": [
+        0.526,
+        0.31,
+        0.666,
+        0.498
+      ]
+    },
+    {
+      "label": "router/modem",
+      "confidence": 0.92,
+      "bbox": [
+        0.803,
+        0.531,
+        0.991,
+        0.843
+      ]
+    },
+    {
+      "label": "yellow ethernet cables",
+      "confidence": 0.9,
+      "bbox": [
+        0.783,
+        0.524,
+        0.966,
+        0.856
+      ]
+    },
+    {
+      "label": "suitcases",
+      "confidence": 0.95,
+      "bbox": [
+        0.416,
+        0.045,
+        0.634,
+        0.335
+      ]
+    },
+    {
+      "label": "snack box (orange)",
+      "confidence": 0.93,
+      "bbox": [
+        0.405,
+        0.342,
+        0.477,
+        0.473
+      ]
+    },
+    {
+      "label": "plastic bag",
+      "confidence": 0.88,
+      "bbox": [
+        0.736,
+        0.341,
+        0.894,
+        0.538
+      ]
+    }
+  ],
+  "risks_or_opportunities": [
+    "Severe cable clutter across the center of the desk creates a high risk of snagging and pulling devices like the computer mouse or laptops off the table.",
+    "The workspace is heavily crowded with non-work items, leaving almost no room for ergonomic wrist support or proper mouse movement.",
+    "Large suitcases piled directly behind the seating area present a tripping hazard and block safe egress from the desk."
+  ],
+  "suggested_actions": [
+    "Route and bundle the tangled cables connected to the silver laptop (closed), computer mouse, and router/modem to clear the central desk space.",
+    "Remove non-essential items such as the book \"Hard Eight\", the plastic bag, and the snack box (orange) from the table to free up space for comfortable arm placement.",
+    "Relocate the large suitcases to a closet or designated storage area to keep the walkway behind the chair completely clear."
+  ],
+  "confidence_notes": "The overhead camera angle and bright direct lighting provide clear visibility of all items, though the dense clutter and overlapping cables make tracing individual wire paths slightly complex."
+}
