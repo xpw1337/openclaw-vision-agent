@@ -1,7 +1,4 @@
-streamlit>=1.57.0
 google-genai>=1.0.0
 Pillow>=12.0.0
 pydantic>=2.13.0
-python-dotenv>=1.2.0
 nats-py>=2.6.0
-pytest>=8.0.0

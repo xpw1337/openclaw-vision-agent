@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vision-agent
+  namespace: surveillance
+  labels:
+    app: vision-agent
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: vision-agent
+  template:
+    metadata:
+      labels:
+        app: vision-agent
+    spec:
+      containers:
+        - name: worker
+          image: k3d-registry.localhost:5000/vision-agent:dev
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: vision-agent-config
+            - secretRef:
+                name: gemini-api
+          ports:
+            - name: health
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

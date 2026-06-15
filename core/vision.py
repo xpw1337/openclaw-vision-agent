@@ -16,7 +16,7 @@ from PIL import Image, ImageOps
 from pydantic import BaseModel
 
 _MAX_EDGE = 2048
-_MODEL = "gemini-3.5-flash"
+_MODEL = os.getenv("MODEL_NAME", "gemini-3.5-flash")
 _TIMEOUT_MS = 30_000
 
 # Finish/block reasons that mean the model refused on content or safety grounds,

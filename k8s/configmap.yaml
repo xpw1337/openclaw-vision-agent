@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vision-agent-config
+  namespace: surveillance
+data:
+  MODEL_NAME: "gemini-3.5-flash"
+  NATS_URL: "nats://nats.surveillance.svc:4222"
+  JOBS_SUBJECT: "jobs.images"
+  OBS_SUBJECT: "observations"
+  QUEUE_GROUP: "workers"
+  HEALTH_PORT: "8080"
