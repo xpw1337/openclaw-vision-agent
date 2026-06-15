@@ -32,6 +32,21 @@ Optionally, run the test suite (41 tests):
 python -m pytest
 ```
 
+## Multi-Agent Infrastructure (Week 1)
+
+The repo also includes a headless **NATS-driven agent worker** deployed on a local k3d cluster (3 replicas + NATS message bus). This wraps the same `core/` vision pipeline for the multi-camera surveillance roadmap.
+
+- **Plan:** [docs/week1-infrastructure-foundation.md](docs/week1-infrastructure-foundation.md)
+- **Setup guide:** [docs/week1-setup.md](docs/week1-setup.md)
+- **5-week roadmap:** [multi-agent-visual-intelligence-5-week-plan.md](multi-agent-visual-intelligence-5-week-plan.md)
+
+Quick start (after Docker + k3d are installed):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup-cluster.ps1
+powershell -ExecutionPolicy Bypass -File scripts\build-and-deploy.ps1
+```
+
 ## What It Does
 
 1. **Upload** a photo of your desk/workspace (or capture via webcam)
@@ -81,7 +96,9 @@ openclaw-vision-agent/
 ├── sample_outputs/           # Real captured JSON for the desk photos
 ├── assets/                   # Demo screenshots
 ├── docs/
-│   └── architecture.md       # Pipeline diagram + design rationale
+│   ├── architecture.md       # Pipeline diagram + design rationale
+│   ├── week1-infrastructure-foundation.md  # Week 1 plan (implemented)
+│   └── week1-setup.md        # Reproduce k3d/NATS/agent deployment
 ├── requirements.txt
 ├── .env.example
 ├── .gitignore
