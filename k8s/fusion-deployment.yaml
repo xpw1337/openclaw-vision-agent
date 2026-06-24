@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fusion
+  namespace: surveillance
+  labels:
+    app: fusion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fusion
+  template:
+    metadata:
+      labels:
+        app: fusion
+    spec:
+      containers:
+        - name: fusion
+          image: k3d-registry.localhost:5000/vision-fusion:dev
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: vision-agent-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+          ports:
+            - name: http
+              containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fusion
+  namespace: surveillance
+spec:
+  selector:
+    app: fusion
+  ports:
+    - port: 8000
+      targetPort: http

@@ -5,11 +5,15 @@ import io
 import pytest
 from PIL import Image
 
+import core.vision as vision
 from core.vision import (
+    DEFAULT_SYSTEM_PROMPT,
     DetectedObject,
     VisionAnalysis,
     _normalize_bboxes,
+    _resolve_system_prompt,
     _to_jpeg_bytes,
+    analyze_image,
 )
 
 
@@ -71,3 +75,79 @@ def test_to_jpeg_applies_exif_orientation():
 
     out = Image.open(io.BytesIO(_to_jpeg_bytes(buf.getvalue())))
     assert out.size == (40, 100)
+
+
+# --- system prompt resolution + zone injection -----------------------------
+
+
+def test_resolve_system_prompt_defaults_to_surveillance(monkeypatch):
+    monkeypatch.delenv("SYSTEM_PROMPT", raising=False)
+    assert _resolve_system_prompt(None) == DEFAULT_SYSTEM_PROMPT
+
+
+def test_resolve_system_prompt_env_override(monkeypatch):
+    monkeypatch.setenv("SYSTEM_PROMPT", "CUSTOM PROMPT")
+    assert _resolve_system_prompt(None) == "CUSTOM PROMPT"
+
+
+def test_resolve_system_prompt_injects_zone(monkeypatch):
+    monkeypatch.delenv("SYSTEM_PROMPT", raising=False)
+    out = _resolve_system_prompt("loading dock")
+    assert out.startswith(DEFAULT_SYSTEM_PROMPT)
+    assert "loading dock" in out
+
+
+class _FakeResponse:
+    def __init__(self, parsed):
+        self.parsed = parsed
+        self.prompt_feedback = None
+        self.candidates = []
+
+
+class _FakeModels:
+    def __init__(self, sink):
+        self._sink = sink
+
+    def generate_content(self, **kwargs):
+        self._sink.update(kwargs)
+        analysis = VisionAnalysis(
+            scene_summary="ok",
+            objects=[],
+            risks_or_opportunities=[],
+            suggested_actions=[],
+            confidence_notes="",
+        )
+        return _FakeResponse(analysis)
+
+
+class _FakeClient:
+    def __init__(self, sink, **_kwargs):
+        self.models = _FakeModels(sink)
+
+
+def _png_bytes():
+    buf = io.BytesIO()
+    Image.new("RGB", (32, 32), "blue").save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_analyze_image_passes_zone_context_to_model(monkeypatch):
+    sink = {}
+    monkeypatch.delenv("SYSTEM_PROMPT", raising=False)
+    monkeypatch.setattr(vision.genai, "Client", lambda **kw: _FakeClient(sink, **kw))
+
+    analyze_image(_png_bytes(), zone="dock")
+
+    system_instruction = sink["config"].system_instruction
+    assert "dock" in system_instruction
+    assert system_instruction.startswith(DEFAULT_SYSTEM_PROMPT)
+
+
+def test_analyze_image_uses_env_prompt(monkeypatch):
+    sink = {}
+    monkeypatch.setenv("SYSTEM_PROMPT", "CUSTOM PROMPT")
+    monkeypatch.setattr(vision.genai, "Client", lambda **kw: _FakeClient(sink, **kw))
+
+    analyze_image(_png_bytes())
+
+    assert sink["config"].system_instruction == "CUSTOM PROMPT"

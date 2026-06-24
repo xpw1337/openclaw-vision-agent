@@ -1,0 +1,22 @@
+# Per-camera frame sampler image — samples clip frames and publishes ImageJobs.
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# OpenCV headless still needs a couple of shared libs at runtime.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-sampler.txt .
+RUN pip install --no-cache-dir -r requirements-sampler.txt
+
+COPY core/ core/
+COPY agent/ agent/
+COPY sampler/ sampler/
+COPY data/clips/ data/clips/
+
+RUN useradd --create-home --uid 1000 sampler
+USER sampler
+
+CMD ["python", "-m", "sampler.main"]

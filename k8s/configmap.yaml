@@ -10,3 +10,7 @@ data:
   OBS_SUBJECT: "observations"
   QUEUE_GROUP: "workers"
   HEALTH_PORT: "8080"
+  # Week 2: fusion + sampler tuning (password injected separately from a Secret).
+  DATABASE_URL: "postgresql://postgres@postgres.surveillance.svc:5432/surveillance"
+  REDIS_URL: "redis://redis.surveillance.svc:6379/0"
+  SAMPLE_INTERVAL_SECONDS: "5"

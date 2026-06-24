@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from core.vision import VisionAnalysis
 
-SCHEMA_VERSION = "0.1"
+SCHEMA_VERSION = "0.2"
 
 
 def _utcnow() -> datetime:
@@ -23,6 +23,7 @@ def _utcnow() -> datetime:
 class ImageJob(BaseModel):
     job_id: str
     camera_id: str
+    zone: str = "unknown"
     image_b64: str
     timestamp: datetime = Field(default_factory=_utcnow)
 
@@ -43,6 +44,7 @@ class Observation(BaseModel):
     schema_version: str = SCHEMA_VERSION
     job_id: str
     camera_id: str
+    zone: str = "unknown"
     worker_id: str
     timestamp: datetime = Field(default_factory=_utcnow)
     analysis: VisionAnalysis | None = None

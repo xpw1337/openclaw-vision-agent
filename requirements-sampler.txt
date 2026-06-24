@@ -1,0 +1,8 @@
+# Frame sampler runtime deps. Includes google-genai + Pillow because the shared
+# agent.messages module imports core.vision (VisionAnalysis) at load time.
+nats-py>=2.6.0
+pydantic>=2.13.0
+opencv-python-headless>=4.10.0
+numpy>=1.26.0
+google-genai>=1.0.0
+Pillow>=12.0.0

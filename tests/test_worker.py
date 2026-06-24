@@ -24,8 +24,8 @@ def _settings():
     return Settings()
 
 
-def _job_msg():
-    job = ImageJob(job_id="j1", camera_id="cam-1", image_b64=_B64)
+def _job_msg(zone="dock"):
+    job = ImageJob(job_id="j1", camera_id="cam-1", zone=zone, image_b64=_B64)
     return _Msg(job.model_dump_json().encode())
 
 
@@ -46,11 +46,12 @@ def test_handle_job_success():
     with patch("agent.worker.analyze_image", return_value=analysis) as mock_analyze:
         asyncio.run(handle_job(nc, _settings(), _job_msg()))
 
-    mock_analyze.assert_called_once_with(b"fake image bytes")
+    mock_analyze.assert_called_once_with(b"fake image bytes", "dock")
     subject, obs = _published(nc)
     assert subject == "observations"
     assert obs["job_id"] == "j1"
     assert obs["camera_id"] == "cam-1"
+    assert obs["zone"] == "dock"
     assert obs["error"] is None
     assert obs["analysis"]["scene_summary"] == "a desk"
 
@@ -63,6 +64,7 @@ def test_handle_job_analysis_failure_publishes_error_observation():
     subject, obs = _published(nc)
     assert subject == "observations"
     assert obs["job_id"] == "j1"
+    assert obs["zone"] == "dock"
     assert obs["analysis"] is None
     assert "api down" in obs["error"]
 
@@ -74,4 +76,5 @@ def test_handle_job_malformed_message_publishes_error_observation():
     subject, obs = _published(nc)
     assert subject == "observations"
     assert obs["job_id"] == "unknown"
+    assert obs["zone"] == "unknown"
     assert obs["error"] == "malformed job message"

@@ -1,0 +1,169 @@
+# Per-camera frame samplers. Four cameras across three zones; the dock zone has
+# two cameras to demonstrate multi-camera-into-one-zone fusion.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sampler-cam-dock-1
+  namespace: surveillance
+  labels:
+    app: sampler
+    camera: cam-dock-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sampler
+      camera: cam-dock-1
+  template:
+    metadata:
+      labels:
+        app: sampler
+        camera: cam-dock-1
+    spec:
+      containers:
+        - name: sampler
+          image: k3d-registry.localhost:5000/vision-sampler:dev
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: vision-agent-config
+          env:
+            - name: CAMERA_ID
+              value: cam-dock-1
+            - name: ZONE
+              value: dock
+            - name: CLIP_PATH
+              value: /app/data/clips/cam-dock-1.avi
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sampler-cam-dock-2
+  namespace: surveillance
+  labels:
+    app: sampler
+    camera: cam-dock-2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sampler
+      camera: cam-dock-2
+  template:
+    metadata:
+      labels:
+        app: sampler
+        camera: cam-dock-2
+    spec:
+      containers:
+        - name: sampler
+          image: k3d-registry.localhost:5000/vision-sampler:dev
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: vision-agent-config
+          env:
+            - name: CAMERA_ID
+              value: cam-dock-2
+            - name: ZONE
+              value: dock
+            - name: CLIP_PATH
+              value: /app/data/clips/cam-dock-2.avi
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sampler-cam-lobby-1
+  namespace: surveillance
+  labels:
+    app: sampler
+    camera: cam-lobby-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sampler
+      camera: cam-lobby-1
+  template:
+    metadata:
+      labels:
+        app: sampler
+        camera: cam-lobby-1
+    spec:
+      containers:
+        - name: sampler
+          image: k3d-registry.localhost:5000/vision-sampler:dev
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: vision-agent-config
+          env:
+            - name: CAMERA_ID
+              value: cam-lobby-1
+            - name: ZONE
+              value: lobby
+            - name: CLIP_PATH
+              value: /app/data/clips/cam-lobby-1.avi
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sampler-cam-lot-1
+  namespace: surveillance
+  labels:
+    app: sampler
+    camera: cam-lot-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sampler
+      camera: cam-lot-1
+  template:
+    metadata:
+      labels:
+        app: sampler
+        camera: cam-lot-1
+    spec:
+      containers:
+        - name: sampler
+          image: k3d-registry.localhost:5000/vision-sampler:dev
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: vision-agent-config
+          env:
+            - name: CAMERA_ID
+              value: cam-lot-1
+            - name: ZONE
+              value: lot
+            - name: CLIP_PATH
+              value: /app/data/clips/cam-lot-1.avi
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

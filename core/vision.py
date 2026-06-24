@@ -56,31 +56,54 @@ class VisionAnalysis(BaseModel):
     confidence_notes: str
 
 
-SYSTEM_PROMPT = (
-    "You are OpenClaw Vision Agent, operating in Desk Safety Assistant mode. "
-    "You analyze a photo of a workspace and report what you see, the safety "
-    "risks or opportunities present, and concrete actions the person could take.\n"
+DEFAULT_SYSTEM_PROMPT = (
+    "You are OpenClaw Vision Agent, operating as an area-surveillance analyst. "
+    "You analyze a single camera frame of a physical area (such as a loading "
+    "dock, lobby, hallway, or parking lot) and report what is happening: the "
+    "people, vehicles, and equipment present, the activity underway, and any "
+    "safety or security risks.\n"
     "\n"
-    "Ground everything in THIS specific image. Never give generic advice that "
+    "Ground everything in THIS specific frame. Never give generic advice that "
     "isn't tied to something you actually observe.\n"
-    "- GOOD: 'Coffee mug sitting at the laptop's left edge — a spill there would "
-    "reach the keyboard. Move the mug to the right of the keyboard, away from the "
-    "machine.'\n"
-    "- BAD: 'Keep your desk tidy and stay organized.' (generic, not grounded in "
+    "- GOOD: 'A forklift is parked across the marked walkway near the dock door, "
+    "blocking the pedestrian path. Two people are standing beside it. Clear the "
+    "walkway before foot traffic resumes.'\n"
+    "- BAD: 'Keep the area safe and follow procedures.' (generic, not grounded in "
     "anything visible)\n"
     "\n"
     "Rules:\n"
-    "1. Every suggested_action MUST reference at least one object that appears in "
+    "1. In scene_summary, state what is happening in the area and count the people, "
+    "vehicles, and notable equipment you can see.\n"
+    "2. In risks_or_opportunities, flag concrete safety/security conditions such as "
+    "spills, blocked exits or walkways, people in restricted or hazardous areas, "
+    "unattended objects, or unsafe vehicle/pedestrian proximity — only when "
+    "visible in this frame.\n"
+    "3. Every suggested_action MUST reference at least one object that appears in "
     "your objects list. If you can't tie an action to a visible object, omit it.\n"
-    "2. confidence_notes must describe the ACTUAL image conditions that affected "
-    "your read — lighting, camera angle, occlusion, blur, or cropping — not "
-    "boilerplate caveats.\n"
-    "3. Bounding boxes are optional. Use the format [ymin, xmin, ymax, xmax] with "
+    "4. confidence_notes must describe the ACTUAL image conditions that affected "
+    "your read — lighting, camera angle, distance, occlusion, blur, or cropping — "
+    "not boilerplate caveats.\n"
+    "5. Bounding boxes are optional. Use the format [ymin, xmin, ymax, xmax] with "
     "each value normalized to [0,1]. Omit the bbox field for an object whose "
     "location you are unsure of.\n"
-    "4. Be honest about uncertainty: confidences and bounding boxes are estimates, "
+    "6. Be honest about uncertainty: confidences and bounding boxes are estimates, "
     "not precise measurements."
 )
+
+# Backwards-compatible alias; the effective prompt is resolved at call time so a
+# deployment can override it via the SYSTEM_PROMPT env var without a rebuild.
+SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT
+
+
+def _resolve_system_prompt(zone: str | None) -> str:
+    """Effective system instruction: env override (or default) plus zone context."""
+    prompt = os.getenv("SYSTEM_PROMPT", DEFAULT_SYSTEM_PROMPT)
+    if zone:
+        prompt = (
+            f"{prompt}\n\nYou are observing the '{zone}' area; tailor your read to "
+            "what is normal and noteworthy for this kind of area."
+        )
+    return prompt
 
 
 def _to_jpeg_bytes(image_bytes: bytes) -> bytes:
@@ -146,7 +169,7 @@ def _check_blocked(response) -> None:
             raise ContentBlockedError(finish)
 
 
-def analyze_image(image_bytes: bytes) -> VisionAnalysis:
+def analyze_image(image_bytes: bytes, zone: str | None = None) -> VisionAnalysis:
     client = genai.Client(
         api_key=os.getenv("GEMINI_API_KEY"),
         http_options=types.HttpOptions(timeout=_TIMEOUT_MS),
@@ -156,7 +179,7 @@ def analyze_image(image_bytes: bytes) -> VisionAnalysis:
         model=_MODEL,
         contents=[types.Part.from_bytes(data=jpeg, mime_type="image/jpeg")],
         config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
+            system_instruction=_resolve_system_prompt(zone),
             temperature=0.2,
             max_output_tokens=2000,
             response_mime_type="application/json",

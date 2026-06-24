@@ -38,19 +38,27 @@ async def handle_job(nc, settings: Settings, msg) -> None:
         return
 
     try:
-        analysis = await asyncio.to_thread(analyze_image, job.image_bytes())
+        analysis = await asyncio.to_thread(analyze_image, job.image_bytes(), job.zone)
         obs = Observation(
             job_id=job.job_id,
             camera_id=job.camera_id,
+            zone=job.zone,
             worker_id=settings.worker_id,
             analysis=analysis,
         )
-        logger.info("Job %s (camera %s) analyzed: %s objects", job.job_id, job.camera_id, len(analysis.objects))
+        logger.info(
+            "Job %s (camera %s, zone %s) analyzed: %s objects",
+            job.job_id,
+            job.camera_id,
+            job.zone,
+            len(analysis.objects),
+        )
     except Exception as exc:
         logger.exception("Job %s failed", job.job_id)
         obs = Observation(
             job_id=job.job_id,
             camera_id=job.camera_id,
+            zone=job.zone,
             worker_id=settings.worker_id,
             error=f"{type(exc).__name__}: {exc}",
         )

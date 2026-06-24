@@ -26,3 +26,7 @@ Desktop.ini
 
 # Assignment spec (local reference only, not for public repo)
 *.docx
+
+# Sample video clips (downloaded by scripts/fetch-sample-clips.ps1)
+data/clips/*
+!data/clips/.gitkeep
