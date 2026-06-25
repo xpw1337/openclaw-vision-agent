@@ -4,6 +4,7 @@ import asyncio
 import itertools
 import json
 from unittest.mock import AsyncMock
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -73,6 +74,7 @@ def test_main_publishes_imagejob_with_camera_and_zone(monkeypatch):
         return nc
 
     monkeypatch.setattr(sampler_main.nats, "connect", _connect)
+    monkeypatch.setattr(sampler_main, "start_http_server", lambda *_a, **_k: None)
     # Replace the (blocking, cv2-backed) generator with a finite fake.
     monkeypatch.setattr(sampler_main, "iter_frames", lambda *_a, **_k: iter([b"\xff\xd8jpegbytes"]))
     monkeypatch.setenv("CAMERA_ID", "cam-x")
@@ -88,3 +90,26 @@ def test_main_publishes_imagejob_with_camera_and_zone(monkeypatch):
     assert job["camera_id"] == "cam-x"
     assert job["zone"] == "dock"
     assert job["image_b64"]  # populated, valid base64 (ImageJob validates it)
+
+
+def test_main_uses_jetstream_publish_when_enabled(monkeypatch):
+    nc = AsyncMock()
+    js = AsyncMock()
+    nc.jetstream = Mock(return_value=js)
+
+    async def _connect(*_a, **_k):
+        return nc
+
+    monkeypatch.setattr(sampler_main.nats, "connect", _connect)
+    monkeypatch.setattr(sampler_main, "start_http_server", lambda *_a, **_k: None)
+    monkeypatch.setattr(sampler_main, "iter_frames", lambda *_a, **_k: iter([b"\xff\xd8jpegbytes"]))
+    monkeypatch.setenv("CAMERA_ID", "cam-x")
+    monkeypatch.setenv("ZONE", "dock")
+    monkeypatch.setenv("CLIP_PATH", "clip.avi")
+    monkeypatch.setenv("SAMPLE_INTERVAL_SECONDS", "0")
+    monkeypatch.setenv("JETSTREAM_ENABLED", "true")
+
+    asyncio.run(sampler_main.run())
+
+    assert js.publish.await_count == 1
+    nc.publish.assert_not_awaited()

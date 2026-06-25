@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS observations (
     error text,
     created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS job_published_at timestamptz;
 CREATE INDEX IF NOT EXISTS observations_zone_idx ON observations (zone);
 CREATE INDEX IF NOT EXISTS observations_ts_idx ON observations (ts);
 """
@@ -34,8 +35,8 @@ CREATE INDEX IF NOT EXISTS observations_ts_idx ON observations (ts);
 _INSERT = """
 INSERT INTO observations
     (job_id, camera_id, zone, worker_id, ts, scene_summary,
-     objects, risks, suggested_actions, confidence_notes, schema_version, error)
-VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11, $12)
+     objects, risks, suggested_actions, confidence_notes, schema_version, error, job_published_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11, $12, $13)
 """
 
 
@@ -80,6 +81,7 @@ class Database:
                 notes,
                 obs.schema_version,
                 obs.error,
+                obs.job_published_at,
             )
 
     async def count(self, zone: str | None = None) -> int:

@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: jetstream-setup
+  namespace: surveillance
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: setup
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: vision-agent-config
+          command:
+            - /bin/sh
+            - -c
+            - |
+              python -m pip install --no-cache-dir nats-py && python - <<'PY'
+              import asyncio
+              import os
+              import nats
+              from nats.js.api import RetentionPolicy, StorageType, StreamConfig
+              from nats.js.errors import NotFoundError
+
+              async def ensure_stream(js, config):
+                  try:
+                      await js.stream_info(config.name)
+                  except NotFoundError:
+                      await js.add_stream(config)
+                      print(f"created stream {config.name}: {config.subjects}")
+                      return
+                  await js.update_stream(config)
+                  print(f"updated stream {config.name}: {config.subjects}")
+
+              async def main():
+                  nc = await nats.connect(os.getenv("NATS_URL", "nats://nats.surveillance.svc:4222"))
+                  js = nc.jetstream()
+                  try:
+                      await ensure_stream(js, StreamConfig(
+                          name=os.getenv("JOBS_STREAM", "JOBS"),
+                          subjects=[os.getenv("JOBS_SUBJECT", "jobs.images")],
+                          retention=RetentionPolicy.WORK_QUEUE,
+                          storage=StorageType.FILE,
+                          max_msgs=10000,
+                      ))
+                      await ensure_stream(js, StreamConfig(
+                          name=os.getenv("DLQ_STREAM", "JOBS_DLQ"),
+                          subjects=[os.getenv("DLQ_SUBJECT", "jobs.dlq")],
+                          retention=RetentionPolicy.LIMITS,
+                          storage=StorageType.FILE,
+                          max_msgs=10000,
+                      ))
+                  finally:
+                      await nc.drain()
+
+              asyncio.run(main())
+              PY

@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from core.vision import VisionAnalysis
 
-SCHEMA_VERSION = "0.2"
+SCHEMA_VERSION = "0.3"
 
 
 def _utcnow() -> datetime:
@@ -47,5 +47,19 @@ class Observation(BaseModel):
     zone: str = "unknown"
     worker_id: str
     timestamp: datetime = Field(default_factory=_utcnow)
+    job_published_at: datetime | None = None
     analysis: VisionAnalysis | None = None
     error: str | None = None
+
+
+class DeadLetterJob(BaseModel):
+    schema_version: str = SCHEMA_VERSION
+    job_id: str
+    camera_id: str
+    zone: str = "unknown"
+    worker_id: str
+    failed_at: datetime = Field(default_factory=_utcnow)
+    attempts: int = 1
+    reason: str
+    terminal: bool = False
+    job_published_at: datetime | None = None

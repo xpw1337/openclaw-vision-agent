@@ -40,6 +40,8 @@ class Settings:
     # Longest-edge cap for the JPEG sent on the wire (keeps NATS payloads small;
     # the model preprocessor downscales again to 2048 anyway).
     max_image_size: int = field(default_factory=lambda: _env_int("MAX_IMAGE_SIZE", 1280))
+    jetstream_enabled: bool = field(default_factory=lambda: _env_bool("JETSTREAM_ENABLED", False))
+    metrics_port: int = field(default_factory=lambda: _env_int("METRICS_PORT", 9102))
 
 
 def load_settings() -> Settings:

@@ -7,9 +7,13 @@ router with a fake store and skip the connecting lifespan. The module-level
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import nats
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from fusion.config import load_settings
 from fusion.consumer import Consumer
@@ -17,6 +21,7 @@ from fusion.db import Database
 from fusion.store import Store
 
 logger = logging.getLogger("fusion.api")
+_DASHBOARD_DIR = Path(__file__).resolve().parents[1] / "dashboard"
 
 router = APIRouter()
 
@@ -28,6 +33,16 @@ def get_store(request: Request) -> Store:
 @router.get("/healthz")
 async def healthz() -> dict:
     return {"status": "ok"}
+
+
+@router.get("/metrics", include_in_schema=False)
+async def metrics() -> Response:
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+@router.get("/", include_in_schema=False)
+async def dashboard() -> FileResponse:
+    return FileResponse(_DASHBOARD_DIR / "index.html")
 
 
 @router.get("/zones")
@@ -81,6 +96,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="Surveillance Fusion API", lifespan=lifespan)
     app.include_router(router)
+    app.mount("/static", StaticFiles(directory=_DASHBOARD_DIR), name="static")
     return app
 
 

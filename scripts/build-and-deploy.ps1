@@ -1,5 +1,6 @@
 # Build the worker, sampler, and fusion images, push to the k3d registry, and
-# (re)deploy the full Week 2 stack (NATS workers + Postgres + Redis + fusion + samplers).
+# (re)deploy the stack. Sampler manifests are generated with replicas: 0, so
+# this script is safe to re-run without resuming Gemini API calls.
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
@@ -39,6 +40,11 @@ if (-not (Test-Path "data/clips/cam-dock-1.avi")) {
     & (Join-Path $PSScriptRoot "fetch-sample-clips.ps1")
 }
 
+# Sampler manifests are generated from k8s/cameras.json and intentionally use
+# replicas: 0. Use scripts/scale-samplers.ps1 for the explicit opt-in live demo.
+python (Join-Path $PSScriptRoot "generate_sampler_manifests.py")
+$samplerDeployments = python (Join-Path $PSScriptRoot "generate_sampler_manifests.py") --list-deployments
+
 # --- Build + push images -----------------------------------------------------
 
 # Push via localhost:5000 (host port mapping); k3d-registry.localhost only
@@ -56,6 +62,9 @@ docker push localhost:5000/vision-fusion:dev
 
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/configmap.yaml
+kubectl -n surveillance delete job jetstream-setup --ignore-not-found
+kubectl apply -f k8s/jetstream-setup-job.yaml
+kubectl -n surveillance wait --for=condition=complete job/jetstream-setup --timeout=180s
 kubectl apply -f k8s/postgres.yaml
 kubectl apply -f k8s/redis.yaml
 kubectl apply -f k8s/agent-deployment.yaml
@@ -65,9 +74,13 @@ kubectl apply -f k8s/sampler-deployment.yaml
 # --- Roll + wait -------------------------------------------------------------
 
 kubectl -n surveillance rollout restart `
-    deployment/vision-agent deployment/fusion `
-    deployment/sampler-cam-dock-1 deployment/sampler-cam-dock-2 `
-    deployment/sampler-cam-lobby-1 deployment/sampler-cam-lot-1
+    deployment/vision-agent deployment/fusion
+
+foreach ($deployment in $samplerDeployments) {
+    if ($deployment) {
+        kubectl -n surveillance rollout restart "deployment/$deployment"
+    }
+}
 
 kubectl -n surveillance rollout status deployment/postgres --timeout=180s
 kubectl -n surveillance rollout status deployment/redis --timeout=120s
@@ -78,3 +91,6 @@ Write-Host ""
 Write-Host "Deployed. Query the fused area summary with:"
 Write-Host "  kubectl -n surveillance port-forward svc/fusion 8000:8000"
 Write-Host "  curl http://localhost:8000/area"
+Write-Host ""
+Write-Host "Sampler deployments remain at replicas=0. To explicitly resume Gemini calls:"
+Write-Host "  scripts/scale-samplers.ps1 -Replicas 1"

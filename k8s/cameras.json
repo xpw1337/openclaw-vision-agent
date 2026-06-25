@@ -1,0 +1,40 @@
+{
+  "cameras": [
+    {
+      "camera_id": "cam-dock-1",
+      "display_name": "Dock 1",
+      "zone": "dock",
+      "clip_file": "cam-dock-1.avi"
+    },
+    {
+      "camera_id": "cam-dock-2",
+      "display_name": "Dock 2",
+      "zone": "dock",
+      "clip_file": "cam-dock-2.avi"
+    },
+    {
+      "camera_id": "cam-lobby-1",
+      "display_name": "Lobby 1",
+      "zone": "lobby",
+      "clip_file": "cam-lobby-1.avi"
+    },
+    {
+      "camera_id": "cam-lobby-2",
+      "display_name": "Lobby 2",
+      "zone": "lobby",
+      "clip_file": "cam-lobby-2.avi"
+    },
+    {
+      "camera_id": "cam-lot-1",
+      "display_name": "Lot 1",
+      "zone": "lot",
+      "clip_file": "cam-lot-1.avi"
+    },
+    {
+      "camera_id": "cam-lot-2",
+      "display_name": "Lot 2",
+      "zone": "lot",
+      "clip_file": "cam-lot-2.avi"
+    }
+  ]
+}

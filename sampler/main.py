@@ -12,10 +12,12 @@ import signal
 import uuid
 
 import nats
+from prometheus_client import start_http_server
 
 from agent.messages import ImageJob
 from sampler.config import Settings, load_settings
 from sampler.frames import iter_frames
+from sampler.metrics import JOBS_PUBLISHED
 
 logger = logging.getLogger("sampler.main")
 
@@ -34,6 +36,8 @@ async def run() -> None:
 
     if not settings.clip_path:
         raise SystemExit("CLIP_PATH is required")
+    start_http_server(settings.metrics_port)
+    logger.info("Metrics server on :%s (/metrics)", settings.metrics_port)
 
     nc = await nats.connect(
         settings.nats_url,
@@ -46,6 +50,7 @@ async def run() -> None:
         settings.camera_id,
         settings.zone,
     )
+    js = nc.jetstream() if settings.jetstream_enabled else None
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -75,7 +80,14 @@ async def run() -> None:
             zone=settings.zone,
             image_b64=base64.b64encode(jpeg).decode(),
         )
-        await nc.publish(settings.jobs_subject, job.model_dump_json().encode())
+        payload = job.model_dump_json().encode()
+        if js is not None:
+            await js.publish(settings.jobs_subject, payload)
+            transport = "jetstream"
+        else:
+            await nc.publish(settings.jobs_subject, payload)
+            transport = "core"
+        JOBS_PUBLISHED.labels(settings.camera_id, settings.zone, transport).inc()
         published += 1
         logger.info("Published job %s (%s/%s) [%s frames sent]", job.job_id, settings.camera_id, settings.zone, published)
 

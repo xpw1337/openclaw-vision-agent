@@ -1,8 +1,8 @@
-# Download a small set of sample clips into data/clips/ for the Week 2 demo.
+# Download a small set of sample clips into data/clips/ for the demo.
 #
 # The guaranteed source is OpenCV's BSD-licensed `vtest.avi` (pedestrian
-# surveillance footage). Each of the four demo cameras gets its own clip file so
-# you can drop in your own footage per camera later. Extra public clips are
+# surveillance footage). Each camera in k8s/cameras.json gets its own clip file
+# so you can drop in your own footage per camera later. Extra public clips are
 # fetched best-effort to add visual variety; if a download fails we fall back to
 # vtest.avi so the demo always has something to play.
 $ErrorActionPreference = "Stop"
@@ -44,21 +44,29 @@ foreach ($name in $extras.Keys) {
     if (-not (Test-Path $dest)) { Get-File $extras[$name] $dest | Out-Null }
 }
 
-# 3) Materialize one clip file per demo camera. Prefer an extra clip where we
-#    have one, otherwise fall back to the guaranteed base clip.
+# 3) Materialize one clip file per camera in the registry. Prefer an extra clip
+#    where we have one, otherwise fall back to the guaranteed base clip.
 $peopleAlt = Join-Path $clipsDir "people-768.avi"
 $alt = $base
 if (Test-Path $peopleAlt) { $alt = $peopleAlt }
-$cameraSources = @{
-    "cam-dock-1.avi"  = $base
-    "cam-dock-2.avi"  = $alt
-    "cam-lobby-1.avi" = $base
-    "cam-lot-1.avi"   = $alt
+
+$registryPath = Join-Path (Get-Location) "k8s/cameras.json"
+if (-not (Test-Path $registryPath)) {
+    Write-Error "Camera registry not found: $registryPath"
 }
-foreach ($name in $cameraSources.Keys) {
+$cameras = (Get-Content $registryPath -Raw | ConvertFrom-Json).cameras
+$sourcePool = @($base, $alt)
+$i = 0
+foreach ($camera in $cameras) {
+    $name = $camera.clip_file
+    if (-not $name) {
+        Write-Error "Camera $($camera.camera_id) is missing clip_file in k8s/cameras.json"
+    }
+    $source = $sourcePool[$i % $sourcePool.Count]
     $dest = Join-Path $clipsDir $name
-    Copy-Item $cameraSources[$name] $dest -Force
-    Write-Host "Prepared $name"
+    Copy-Item $source $dest -Force
+    Write-Host "Prepared $name for $($camera.camera_id) ($($camera.zone))"
+    $i++
 }
 
 Write-Host ""

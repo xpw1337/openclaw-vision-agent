@@ -1,6 +1,7 @@
 """Tests for the Redis snapshot store and per-zone fusion (fakeredis)."""
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 
 import fakeredis.aioredis
 
@@ -77,3 +78,31 @@ def test_latest_observation_per_camera_overwrites():
     dock = asyncio.run(_run())
     assert dock["camera_count"] == 1
     assert dock["object_counts"] == {"forklift": 1}
+
+
+def test_summarize_zone_exposes_camera_detail_and_staleness():
+    now = datetime(2026, 6, 24, 12, 0, tzinfo=timezone.utc)
+    obs = _obs("cam-dock-1", "dock", ["person"], ["blocked walkway"]).model_dump(mode="json")
+    obs["timestamp"] = (now - timedelta(seconds=20)).isoformat()
+
+    summary = summarize_zone("dock", [obs], now=now, stale_after_seconds=10)
+
+    assert summary["stale_camera_count"] == 1
+    detail = summary["cameras_detail"][0]
+    assert detail["camera_id"] == "cam-dock-1"
+    assert detail["age_seconds"] == 20
+    assert detail["stale"] is True
+    assert detail["scene_summary"] == "x"
+    assert detail["object_counts"] == {"person": 1}
+    assert detail["risks"] == ["blocked walkway"]
+
+
+def test_error_observation_is_visible_in_camera_detail():
+    obs = Observation(job_id="job-err", camera_id="cam-dock-1", zone="dock", worker_id="w1", error="api down")
+
+    summary = summarize_zone("dock", [obs.model_dump(mode="json")])
+
+    detail = summary["cameras_detail"][0]
+    assert detail["error"] == "api down"
+    assert detail["scene_summary"] is None
+    assert detail["object_counts"] == {}

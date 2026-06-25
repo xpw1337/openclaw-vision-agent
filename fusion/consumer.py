@@ -8,6 +8,7 @@ import logging
 
 from agent.messages import Observation
 from fusion.db import Database
+from fusion.metrics import OBSERVATIONS_FUSED, OBSERVATIONS_REJECTED
 from fusion.store import Store
 
 logger = logging.getLogger("fusion.consumer")
@@ -19,6 +20,7 @@ async def process(db: Database, store: Store, raw: bytes) -> bool:
         obs = Observation.model_validate_json(raw)
     except Exception:
         logger.warning("Rejected malformed observation (%d bytes)", len(raw))
+        OBSERVATIONS_REJECTED.labels(reason="malformed").inc()
         return False
 
     try:
@@ -26,8 +28,10 @@ async def process(db: Database, store: Store, raw: bytes) -> bool:
         await store.update_snapshot(obs)
     except Exception:
         logger.exception("Failed to persist observation %s", obs.job_id)
+        OBSERVATIONS_REJECTED.labels(reason="persist").inc()
         return False
 
+    OBSERVATIONS_FUSED.labels(zone=obs.zone, has_error=str(obs.error is not None).lower()).inc()
     logger.info("Fused observation %s (camera %s, zone %s)", obs.job_id, obs.camera_id, obs.zone)
     return True
 

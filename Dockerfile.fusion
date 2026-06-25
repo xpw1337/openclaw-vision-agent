@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements-fusion.txt
 COPY core/ core/
 COPY agent/ agent/
 COPY fusion/ fusion/
+COPY dashboard/ dashboard/
 
 RUN useradd --create-home --uid 1000 fusion
 USER fusion

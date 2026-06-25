@@ -9,6 +9,8 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable
 
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
 
 def start_health_server(port: int, ready_check: Callable[[], bool]) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
@@ -20,12 +22,14 @@ def start_health_server(port: int, ready_check: Callable[[], bool]) -> Threading
                     self._respond(200, b"ready")
                 else:
                     self._respond(503, b"not ready")
+            elif self.path == "/metrics":
+                self._respond(200, generate_latest(), CONTENT_TYPE_LATEST.encode())
             else:
                 self._respond(404, b"not found")
 
-        def _respond(self, status: int, body: bytes) -> None:
+        def _respond(self, status: int, body: bytes, content_type: bytes = b"text/plain") -> None:
             self.send_response(status)
-            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Type", content_type.decode())
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)

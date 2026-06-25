@@ -6,7 +6,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from agent.messages import ImageJob, Observation, SCHEMA_VERSION
+from agent.messages import DeadLetterJob, ImageJob, Observation, SCHEMA_VERSION
 from core.vision import DetectedObject, VisionAnalysis
 
 _B64 = base64.b64encode(b"fake image bytes").decode()
@@ -39,9 +39,9 @@ def test_zone_defaults_to_unknown():
     assert obs.zone == "unknown"
 
 
-def test_schema_version_is_0_2():
-    assert SCHEMA_VERSION == "0.2"
-    assert Observation(job_id="j1", camera_id="cam-1", worker_id="w1").schema_version == "0.2"
+def test_schema_version_is_0_3():
+    assert SCHEMA_VERSION == "0.3"
+    assert Observation(job_id="j1", camera_id="cam-1", worker_id="w1").schema_version == "0.3"
 
 
 def test_image_job_rejects_invalid_base64():
@@ -55,13 +55,20 @@ def test_image_job_rejects_missing_fields():
 
 
 def test_observation_round_trip_with_analysis():
+    job = ImageJob(job_id="j1", camera_id="cam-1", zone="lobby", image_b64=_B64)
     obs = Observation(
-        job_id="j1", camera_id="cam-1", zone="lobby", worker_id="w1", analysis=_analysis()
+        job_id="j1",
+        camera_id="cam-1",
+        zone="lobby",
+        worker_id="w1",
+        job_published_at=job.timestamp,
+        analysis=_analysis(),
     )
     restored = Observation.model_validate_json(obs.model_dump_json())
     assert restored.schema_version == SCHEMA_VERSION
     assert restored.zone == "lobby"
     assert restored.error is None
+    assert restored.job_published_at == job.timestamp
     assert restored.analysis.objects[0].label == "laptop"
     assert restored.analysis.objects[0].bbox == pytest.approx([0.1, 0.2, 0.3, 0.4])
 
@@ -71,3 +78,22 @@ def test_observation_error_path():
     restored = Observation.model_validate_json(obs.model_dump_json())
     assert restored.analysis is None
     assert restored.error == "boom"
+
+
+def test_dead_letter_job_round_trip():
+    failed = DeadLetterJob(
+        job_id="j1",
+        camera_id="cam-1",
+        zone="dock",
+        worker_id="w1",
+        attempts=3,
+        reason="ResourceExhausted: 429",
+        terminal=False,
+    )
+
+    restored = DeadLetterJob.model_validate_json(failed.model_dump_json())
+
+    assert restored.schema_version == SCHEMA_VERSION
+    assert restored.job_id == "j1"
+    assert restored.attempts == 3
+    assert restored.terminal is False

@@ -14,6 +14,6 @@ kubectl create namespace surveillance --dry-run=client -o yaml | kubectl apply -
 
 helm repo add nats https://nats-io.github.io/k8s/helm/charts/
 helm repo update nats
-helm upgrade --install nats nats/nats --namespace surveillance --wait
+helm upgrade --install nats nats/nats --namespace surveillance --values k8s/nats-values.yaml --wait
 
-Write-Host "Cluster ready. NATS reachable in-cluster at nats://nats.surveillance.svc:4222"
+Write-Host "Cluster ready. NATS + JetStream reachable in-cluster at nats://nats.surveillance.svc:4222"
