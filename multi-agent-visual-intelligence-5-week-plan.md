@@ -104,21 +104,58 @@ Biggest hidden cost: the first clean Docker build of a Pillow + Google-SDK Pytho
 
 # Week 3: Multi-Feed Demo & Reliability
 
+This is the **real-goal milestone**: Weeks 1–3 are meant to deliver a shippable,
+demonstrable product before the research-grade re-ID work in Week 4. Week 2 already
+built working plumbing (samplers → worker pool → fusion → Postgres/Redis → `GET /area`,
+73 tests, verified end to end). Week 3 is therefore mostly about making that plumbing
+**believable, durable, and measured** — not about adding new capabilities.
+
+See [docs/week2.md](docs/week2.md) for the current state, file layout, and known gaps.
+
 ## Goals
-- Run 5–10 feeds simultaneously (each a different POV on the area)
-- Add fault tolerance and monitoring
+- Run 5–10 feeds simultaneously (each a genuinely different POV on the area)
+- Make the demo *believable* (distinct feeds) and *visible* (a single-screen UI)
+- Add fault tolerance, durability, and monitoring
 - Produce a convincing area-awareness demo (this is the real-goal milestone)
 
 ## Tasks
-- Provision 5–10 recorded clips as 5–10 agent deployments, one zone each.
-- Add retries / dead-letter handling for failed `analyze_image` calls and API rate limits.
-- Install Prometheus + Grafana; dashboard for observation throughput, error rate,
-  per-agent liveness, end-to-end latency.
+- **Believable feeds (do this first — highest impact, lowest effort).** Today all four
+  demo cameras play the same two OpenCV sample clips, so "dock vs lobby vs lot" is
+  fiction even though the fusion mechanics are real. Source 5–10 genuinely different
+  clips (different scenes/angles), one per camera/zone.
+- **Parameterize the sampler deployments.** `k8s/sampler-deployment.yaml` is currently a
+  hand-written Deployment block per camera. Going from 4 → 10 cameras, replace this with
+  a templating approach (a small generator loop, or Helm/Kustomize) so cameras are data,
+  not copy-paste.
+- **Single-screen dashboard.** There is no UI yet — only the JSON API + psql. Build a
+  small dashboard that polls `GET /area` and renders the per-zone summary (cards/tiles:
+  camera count, object counts, risks, freshness). This is what makes the milestone land
+  in a demo and satisfies the "single screen of area awareness" criterion.
+- **Reliability.** Add retries / dead-letter handling for failed `analyze_image` calls
+  and Gemini rate limits. The worker currently publishes an error `Observation` on
+  failure but does **not** retry.
+- **Durability (scoped, minimal).** Core NATS is not durable — buffered jobs are dropped
+  on a NATS restart, and the 3-replica worker pool is a hard ~20 frames/min ceiling
+  (~9s per Gemini call), so under load frames silently queue then vanish. Strongly
+  consider moving `jobs.images` to **NATS JetStream** for at-least-once delivery + a
+  dead-letter subject. Keep it minimal — durable jobs + DLQ, not a redesign. This
+  directly underwrites the >95% delivery-rate acceptance target.
+- **Monitoring.** Install Prometheus + Grafana; dashboard observation throughput, error
+  rate, per-agent liveness, and end-to-end latency. Use this to *measure* the delivery
+  rate rather than assert it. The fusion consumer and the worker are the natural metric
+  emitters.
+- **Throughput / cost characterization.** 10 feeds at a 5s interval (~120 frames/min)
+  will massively outrun the ~20/min pool. Deliberately bump `vision-agent` replicas,
+  watch the Gemini rate-limit/cost wall, and *document the ceiling rather than fight it*.
+  The real constraint here is API cost, not engineering.
 - Run a short stability test (≈1 hour) and record observation delivery rate.
 
 ## Deliverables
-- Stable 5–10 agent deployment
-- Retry / recovery handling for API and network failures
+- Stable 5–10 agent deployment with distinct per-camera feeds (cameras as data, not
+  hand-written manifests)
+- Single-screen area-awareness dashboard reading `GET /area`
+- Retry / recovery handling for API and network failures; (likely) JetStream-durable
+  jobs + dead-letter subject
 - Grafana monitoring dashboard
 - Recorded multi-camera area-summary demo
 
@@ -126,6 +163,16 @@ Biggest hidden cost: the first clean Docker build of a Pillow + Google-SDK Pytho
 - ≈1-hour run completes with no manual intervention
 - Observation delivery rate measured and reported (target >95% on the demo set)
 - A single screen shows unified area understanding fused from all feeds
+
+## Scope discipline (non-goals for Week 3)
+- **Do not drift into Week 4 re-ID.** Cross-camera identity ("track this person across
+  cameras") is the deliberately-sequenced hard part. Ship a solid zone-level demo first.
+- **Do not over-engineer fusion.** Latest-wins-per-camera in Redis is honest and
+  sufficient for zone-level awareness. Cross-frame deduplication and temporal smoothing
+  belong in Week 4+ and will look very different — skip them now.
+- **Optional cleanup, not a priority:** the sampler/fusion images pull in `google-genai`
+  + `Pillow` only because the shared `agent.messages` imports `core.vision` at load time.
+  Slimming this (e.g. splitting the wire models) is nice-to-have, not milestone work.
 
 ## Stretch
 - Push replica count toward ~100 to characterize cost and rate-limit behavior (expect
